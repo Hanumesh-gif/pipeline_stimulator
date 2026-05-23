@@ -403,7 +403,8 @@
         const statusDiv = document.getElementById('status');
         const resultSection = document.getElementById('result-section');
         const stageOverview = document.getElementById('stage-overview');
-        const API_BASE_URL = "https://pipeline-stimulator.onrender.com"; // Render backend URL inserted
+        // Use relative paths so the frontend works when served from the same domain as the backend
+        const API_BASE_URL = "";
         const stageStatus = {
             fastqc: document.getElementById('stage-status-fastqc'),
             trimming: document.getElementById('stage-status-trimming'),
