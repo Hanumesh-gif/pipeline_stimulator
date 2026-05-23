@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: pipeline-backend-web
+    env: docker
+    branch: main
+    autoDeploy: true
+    plan: starter
+    dockerfilePath: Dockerfile
+    startCommand: gunicorn main:app --bind 0.0.0.0:$PORT
+
+  - type: worker
+    name: pipeline-backend-worker
+    env: docker
+    branch: main
+    autoDeploy: true
+    plan: starter
+    dockerfilePath: Dockerfile
+    startCommand: celery -A worker.celery_worker.celery worker --loglevel=info
+
+databases:
+  - name: pipeline-redis
+    type: redis
+    plan: starter

@@ -403,6 +403,7 @@
         const statusDiv = document.getElementById('status');
         const resultSection = document.getElementById('result-section');
         const stageOverview = document.getElementById('stage-overview');
+        const API_BASE_URL = "https://<YOUR_BACKEND_URL>"; // Change this after deploying the backend.
         const stageStatus = {
             fastqc: document.getElementById('stage-status-fastqc'),
             trimming: document.getElementById('stage-status-trimming'),
@@ -484,7 +485,7 @@
             resetStages();
 
             try {
-                const response = await fetch('/upload', {
+                const response = await fetch(`${API_BASE_URL}/upload`, {
                     method: 'POST',
                     body: formData
                 });
@@ -493,7 +494,9 @@
 
                 if (response.ok) {
                     showStatus('File uploaded successfully! Processing started.', 'success');
-                    displayResult(data.task_id, data.status_url, data.results_url);
+                    const statusUrl = data.status_url.startsWith('/') ? `${API_BASE_URL}${data.status_url}` : data.status_url;
+                    const resultsUrl = data.results_url.startsWith('/') ? `${API_BASE_URL}${data.results_url}` : data.results_url;
+                    displayResult(data.task_id, statusUrl, resultsUrl);
                 } else {
                     showStatus(data.error || 'Upload failed', 'error');
                 }
@@ -633,7 +636,7 @@
                     linksElement.innerHTML = '';
                     outputs.forEach(filename => {
                         const link = document.createElement('a');
-                        link.href = `/download/${currentTaskId}/${encodeURIComponent(filename)}`;
+                        link.href = `${API_BASE_URL}/download/${currentTaskId}/${encodeURIComponent(filename)}`;
                         link.textContent = filename;
                         link.target = '_blank';
                         linksElement.appendChild(link);
