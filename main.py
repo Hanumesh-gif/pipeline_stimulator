@@ -1,6 +1,6 @@
 import os
 import time
-from flask import Flask, request, jsonify, send_from_directory, render_template
+from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from celery.exceptions import CeleryError
 from worker.celery_worker import run_pipeline as celery_run_pipeline
@@ -12,7 +12,7 @@ RESULT_FOLDER = os.path.join(BASE_DIR, "results")
 ALLOWED_EXTENSIONS = {".fastq.gz", ".fq.gz", ".fastq", ".fq"}
 SYNC_TASKS = {}
 
-app = Flask(__name__, template_folder="templates")
+app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["RESULT_FOLDER"] = RESULT_FOLDER
 
@@ -26,7 +26,7 @@ def allowed_file(filename):
 
 @app.route("/")
 def home():
-    return render_template("upload.html")
+    return send_from_directory(BASE_DIR, "index.html")
 
 
 @app.route("/upload", methods=["POST"])

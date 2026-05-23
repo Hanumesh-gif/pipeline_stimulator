@@ -1,0 +1,15 @@
+# Ignore local build artifacts and large generated data
+results/
+uploads/
+Dockerfile
+docker-compose.yml
+run.sh
+stop.sh
+build.sh
+SETUP.md
+tests/
+worker/
+templates/
+*.log
+.gitignore
+.vercelignore

@@ -63,6 +63,18 @@ python main.py
 
 ---
 
+## Vercel Deployment
+
+This repository includes a Vercel configuration for static deployment of `index.html`.
+
+- `vercel.json` defines the static site build.
+- `.vercelignore` keeps local results and generated files out of the deployment.
+- `VERCEL.md` explains how to connect the GitHub repository to Vercel for continuous deployment.
+
+> Note: The current backend pipeline uses Flask, Celery, Redis, and bioinformatics tools, which cannot be fully hosted as a Vercel serverless deployment. Vercel is best used here for the front-end static site, while the pipeline backend should run on a separate Python server or container host.
+
+---
+
 ## Docker Deployment
 
 ### 1. Build the Docker Image
