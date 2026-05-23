@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASTQ Analysis Pipeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .upload-area {
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8eaff;
+        }
+
+        .upload-area svg {
+            width: 50px;
+            height: 50px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+
+        .upload-text {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 12px;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .file-info {
+            background: #f0f1ff;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .file-name {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-upload {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-upload:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-upload:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-clear {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-clear:hover {
+            background: #d0d0d0;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+            border-left: 4px solid #1976d2;
+        }
+
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+            border-left: 4px solid #388e3c;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+        }
+
+        .status-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(25, 118, 210, 0.3);
+            border-radius: 50%;
+            border-top-color: #1976d2;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .stage-overview {
+            display: grid;
+            gap: 14px;
+            margin-top: 20px;
+        }
+
+        .stage-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 18px;
+            background: #fafafa;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .stage-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+        }
+
+        .stage-title {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .stage-status {
+            display: inline-block;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .stage-status.waiting {
+            background: #f1f3f5;
+            color: #555;
+        }
+
+        .stage-status.running {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .stage-status.done {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .stage-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .stage-links a {
+            display: inline-block;
+            padding: 8px 12px;
+            background: #f0f0ff;
+            color: #333;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 12px;
+            transition: background 0.2s ease;
+        }
+
+        .stage-links a:hover {
+            background: #e0e0ff;
+        }
+
+        .task-id {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .task-id-label {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .status-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .status-link:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+
+        .info-box {
+            background: #f9f9f9;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .info-box strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧬 FASTQ Analysis Pipeline</h1>
+        <p class="subtitle">Upload your FASTQ files for quality control, trimming, and alignment analysis</p>
+
+        <form id="upload-form">
+            <div class="upload-area" id="upload-area">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                </svg>
+                <p class="upload-text">Drag and drop your file here</p>
+                <p class="upload-hint">or click to browse</p>
+                <input type="file" id="file-input" accept=".fastq,.fq,.fastq.gz,.fq.gz" />
+            </div>
+
+            <div class="file-info" id="file-info">
+                <div class="file-name" id="file-name"></div>
+                <div class="file-size" id="file-size"></div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn-upload" id="submit-btn" disabled>Upload & Analyze</button>
+                <button type="button" class="btn-clear" id="clear-btn">Clear</button>
+            </div>
+        </form>
+
+        <div class="status" id="status"></div>
+
+        <div class="result-section" id="result-section">
+            <div class="task-id">
+                <span class="task-id-label">Task ID:</span>
+                <span id="task-id-value"></span>
+            </div>
+            <a href="#" class="status-link" id="status-link" target="_blank">Check Status</a>
+            <a href="#" class="status-link" id="results-link" target="_blank">View Results</a>
+
+            <div class="stage-overview" id="stage-overview">
+                <div class="stage-card" id="stage-card-fastqc">
+                    <div class="stage-title">FastQC</div>
+                    <div class="stage-status waiting" id="stage-status-fastqc">Waiting</div>
+                    <div class="stage-links" id="stage-links-fastqc">No results yet.</div>
+                </div>
+                <div class="stage-card" id="stage-card-trimming">
+                    <div class="stage-title">Trimming</div>
+                    <div class="stage-status waiting" id="stage-status-trimming">Waiting</div>
+                    <div class="stage-links" id="stage-links-trimming">No results yet.</div>
+                </div>
+                <div class="stage-card" id="stage-card-alignment">
+                    <div class="stage-title">Alignment</div>
+                    <div class="stage-status waiting" id="stage-status-alignment">Waiting</div>
+                    <div class="stage-links" id="stage-links-alignment">No results yet.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <strong>Supported Formats:</strong><br>
+            .fastq, .fq, .fastq.gz, .fq.gz<br><br>
+            <strong>Pipeline Steps:</strong><br>
+            1. FastQC - Quality assessment<br>
+            2. Trimming - Adapter and quality trimming<br>
+            3. Alignment - Sequence alignment<br><br>
+            <strong>Output Files:</strong><br>
+            HTML reports, SAM, BAM files
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        const submitBtn = document.getElementById('submit-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const uploadForm = document.getElementById('upload-form');
+        const statusDiv = document.getElementById('status');
+        const resultSection = document.getElementById('result-section');
+        const stageOverview = document.getElementById('stage-overview');
+        const stageStatus = {
+            fastqc: document.getElementById('stage-status-fastqc'),
+            trimming: document.getElementById('stage-status-trimming'),
+            alignment: document.getElementById('stage-status-alignment')
+        };
+        const stageLinks = {
+            fastqc: document.getElementById('stage-links-fastqc'),
+            trimming: document.getElementById('stage-links-trimming'),
+            alignment: document.getElementById('stage-links-alignment')
+        };
+        let currentTaskId = null;
+        let statusTimer = null;
+
+        // Upload area click
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                displayFile(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                fileInput.files = e.dataTransfer.files;
+                displayFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function displayFile(file) {
+            fileName.textContent = file.name;
+            fileSize.textContent = `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            fileInfo.classList.add('show');
+            submitBtn.disabled = false;
+        }
+
+        // Clear button
+        clearBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            fileInfo.classList.remove('show');
+            submitBtn.disabled = true;
+            statusDiv.classList.remove('show');
+            resultSection.classList.remove('show');
+            resetStages();
+            currentTaskId = null;
+            if (statusTimer) {
+                clearTimeout(statusTimer);
+                statusTimer = null;
+            }
+        });
+
+        // Form submission
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (fileInput.files.length === 0) {
+                showStatus('Please select a file', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            submitBtn.disabled = true;
+            showStatus('<span class="status-spinner"></span>Processing...', 'loading');
+            resetStages();
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus('File uploaded successfully! Processing started.', 'success');
+                    displayResult(data.task_id, data.status_url, data.results_url);
+                } else {
+                    showStatus(data.error || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                showStatus('Error uploading file: ' + error.message, 'error');
+            }
+
+            submitBtn.disabled = false;
+        });
+
+        function showStatus(message, type) {
+            statusDiv.innerHTML = message;
+            statusDiv.className = 'status show ' + type;
+        }
+
+        function resetStages() {
+            ['fastqc', 'trimming', 'alignment'].forEach(stage => {
+                stageStatus[stage].textContent = 'Waiting';
+                stageStatus[stage].className = 'stage-status waiting';
+                stageLinks[stage].textContent = 'No results yet.';
+            });
+        }
+
+        let currentResultsUrl = null;
+        function displayResult(taskId, statusUrl, resultsUrl) {
+            currentTaskId = taskId;
+            currentResultsUrl = resultsUrl;
+            document.getElementById('task-id-value').textContent = taskId;
+            document.getElementById('status-link').href = statusUrl;
+            document.getElementById('results-link').href = resultsUrl;
+            resultSection.classList.add('show');
+            pollStatus(statusUrl);
+            // also poll results immediately so available files appear
+            pollResults(resultsUrl);
+        }
+
+        async function pollStatus(statusUrl) {
+            try {
+                const response = await fetch(statusUrl);
+                const data = await response.json();
+
+                updateStageOverview(data);
+
+                // if results endpoint is available, poll it to discover files
+                if (currentResultsUrl) {
+                    pollResults(currentResultsUrl);
+                }
+
+                if (response.ok && data.status === 'success') {
+                    showStatus('Pipeline complete! All stages finished.', 'success');
+                    return;
+                }
+
+                if (response.ok && data.status === 'failure') {
+                    showStatus('Pipeline failed: ' + (data.error || 'Unknown error'), 'error');
+                    return;
+                }
+
+                if (!response.ok) {
+                    showStatus('Status check failed.', 'error');
+                    return;
+                }
+
+                const current = data.current_stage ? `Stage: ${labelForStage(data.current_stage)}` : 'Starting...';
+                showStatus(`<span class="status-spinner"></span>${current}`, 'loading');
+                statusTimer = setTimeout(() => pollStatus(statusUrl), 4000);
+            } catch (error) {
+                showStatus('Unable to check task status: ' + error.message, 'error');
+            }
+        }
+
+        async function pollResults(resultsUrl) {
+            try {
+                const resp = await fetch(resultsUrl);
+                if (!resp.ok) return;
+                const res = await resp.json();
+                // map found files into stage_outputs structure expected by updateStageOverview
+                const stage_outputs = { fastqc: [], trimming: [], alignment: [] };
+                (res.files || []).forEach(fname => {
+                    const l = fname.toLowerCase();
+                    if (l.includes('fastqc') || l.endsWith('_fastqc.html') || l.endsWith('_fastqc.zip')) {
+                        stage_outputs.fastqc.push(fname);
+                    } else if (l.includes('trim') || l.includes('trimmed')) {
+                        stage_outputs.trimming.push(fname);
+                    } else if (l.endsWith('.sam') || l.endsWith('.bam') || l.includes('aligned')) {
+                        stage_outputs.alignment.push(fname);
+                    }
+                });
+
+                const fakeMeta = {
+                    status: 'progress',
+                    current_stage: null,
+                    completed_stages: [],
+                    stage_outputs: stage_outputs
+                };
+                // mark fastqc as completed if files found
+                if (stage_outputs.fastqc.length) fakeMeta.completed_stages.push('fastqc');
+                if (stage_outputs.trimming.length) fakeMeta.completed_stages.push('trimming');
+                if (stage_outputs.alignment.length) fakeMeta.completed_stages.push('alignment');
+
+                updateStageOverview(fakeMeta);
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function labelForStage(stageKey) {
+            if (stageKey === 'fastqc') return 'FastQC';
+            if (stageKey === 'trimming') return 'Trimming';
+            if (stageKey === 'alignment') return 'Alignment';
+            return stageKey;
+        }
+
+        function updateStageOverview(data) {
+            const completedStages = data.completed_stages || [];
+            const stageOutputs = data.stage_outputs || {};
+
+            ['fastqc', 'trimming', 'alignment'].forEach(stage => {
+                const statusElement = stageStatus[stage];
+                const linksElement = stageLinks[stage];
+                const completed = completedStages.includes(stage);
+                const running = data.current_stage === stage && data.status === 'progress';
+
+                if (completed) {
+                    statusElement.textContent = 'Done';
+                    statusElement.className = 'stage-status done';
+                } else if (running) {
+                    statusElement.textContent = 'Running';
+                    statusElement.className = 'stage-status running';
+                } else {
+                    statusElement.textContent = 'Waiting';
+                    statusElement.className = 'stage-status waiting';
+                }
+
+                const outputs = stageOutputs[stage] || [];
+                if (outputs.length > 0 && currentTaskId) {
+                    linksElement.innerHTML = '';
+                    outputs.forEach(filename => {
+                        const link = document.createElement('a');
+                        link.href = `/download/${currentTaskId}/${encodeURIComponent(filename)}`;
+                        link.textContent = filename;
+                        link.target = '_blank';
+                        linksElement.appendChild(link);
+                    });
+                } else {
+                    linksElement.textContent = completed ? 'No files available for this stage.' : 'No results yet.';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
