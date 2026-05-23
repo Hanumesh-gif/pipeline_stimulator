@@ -7,6 +7,13 @@ services:
     plan: starter
     dockerfilePath: Dockerfile
     startCommand: gunicorn main:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: REDIS_URL
+        value: "redis://<REDIS_HOST>:<REDIS_PORT>/0"
+      - key: CELERY_BROKER_URL
+        value: "redis://<REDIS_HOST>:<REDIS_PORT>/0"
+      - key: CELERY_RESULT_BACKEND
+        value: "redis://<REDIS_HOST>:<REDIS_PORT>/0"
 
   - type: worker
     name: pipeline-backend-worker
@@ -16,6 +23,13 @@ services:
     plan: starter
     dockerfilePath: Dockerfile
     startCommand: celery -A worker.celery_worker.celery worker --loglevel=info
+    envVars:
+      - key: REDIS_URL
+        value: "redis://<REDIS_HOST>:<REDIS_PORT>/0"
+      - key: CELERY_BROKER_URL
+        value: "redis://<REDIS_HOST>:<REDIS_PORT>/0"
+      - key: CELERY_RESULT_BACKEND
+        value: "redis://<REDIS_HOST>:<REDIS_PORT>/0"
 
 databases:
   - name: pipeline-redis

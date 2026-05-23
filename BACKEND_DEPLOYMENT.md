@@ -20,9 +20,11 @@ This project uses Flask, Celery, and Redis for the FASTQ pipeline. The frontend 
      - Start Command: `celery -A worker.celery_worker.celery worker --loglevel=info`
 5. Add a managed Redis instance.
 6. Set environment variables for both services:
+   - `REDIS_URL` = `redis://<REDIS_HOST>:<REDIS_PORT>/0`
    - `CELERY_BROKER_URL` = `redis://<REDIS_HOST>:<REDIS_PORT>/0`
    - `CELERY_RESULT_BACKEND` = `redis://<REDIS_HOST>:<REDIS_PORT>/0`
 
+> If your Redis host is `red-d88u51p9rddc738qtdhg:6379`, use `redis://red-d88u51p9rddc738qtdhg:6379/0`.
 > You can use the Render manifest `render.yaml` to automate these resources.
 
 ### Option 2: Deploy the backend on Railway

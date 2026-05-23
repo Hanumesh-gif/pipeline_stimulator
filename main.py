@@ -1,5 +1,7 @@
 import os
 import time
+import logging
+import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from celery.exceptions import CeleryError
@@ -15,6 +17,9 @@ SYNC_TASKS = {}
 app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["RESULT_FOLDER"] = RESULT_FOLDER
+
+# basic logging
+logging.basicConfig(level=logging.INFO)
 
 for folder in (UPLOAD_FOLDER, RESULT_FOLDER):
     os.makedirs(folder, exist_ok=True)
@@ -48,6 +53,11 @@ def upload():
     uploaded_file.save(save_path)
 
     try:
+        # Only use Celery if a broker is configured. If not, fall back to synchronous processing.
+        broker_url = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS_URL")
+        if not broker_url or broker_url.strip() == "" or broker_url.startswith("memory"):
+            raise RuntimeError("No Celery broker configured")
+
         task = celery_run_pipeline.delay(save_path)
         return jsonify({
             "message": "Upload received",
@@ -55,12 +65,13 @@ def upload():
             "status_url": f"/status/{task.id}",
             "results_url": f"/results/{task.id}"
         }), 202
-    except CeleryError:
+    except Exception:
+        # Fall back to synchronous processing when Celery is unavailable or misconfigured
         task_id = f"sync-{timestamp}"
         result = pipeline_run(save_path, task_id)
         SYNC_TASKS[task_id] = result
         return jsonify({
-            "message": "Upload processed synchronously because task queue was unavailable.",
+            "message": "Upload processed synchronously because task queue was unavailable or misconfigured.",
             "task_id": task_id,
             "status_url": f"/status/{task_id}",
             "results_url": f"/results/{task_id}",
@@ -118,6 +129,16 @@ def download(task_id, filename):
         return jsonify({"error": "Results not found"}), 404
 
     return send_from_directory(task_folder, filename, as_attachment=True)
+
+
+@app.errorhandler(Exception)
+def handle_uncaught_exception(e):
+    # Log the exception and always return JSON so the frontend can parse errors
+    logging.exception("Unhandled exception during request")
+    response = {"status": "failure", "error": str(e)}
+    if app.debug:
+        response["traceback"] = traceback.format_exc()
+    return jsonify(response), 500
 
 
 if __name__ == "__main__":
