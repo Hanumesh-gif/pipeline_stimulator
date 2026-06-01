@@ -22,12 +22,11 @@ def sample_name_from_path(path):
     return path.stem
 
 
-def safe_run(command, cwd=None):
+def safe_run(command, cwd=None, text=False):
     try:
-        subprocess.run(command, cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return True
+        return subprocess.run(command, cwd=cwd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=text)
     except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
+        return None
 
 
 def _update_progress(update_state, current_stage, completed_stages, stage_outputs):
@@ -72,23 +71,30 @@ def create_placeholder_bam(bam_path, sam_path):
     return bam_path
 
 
+def create_placeholder_vcf(vcf_path, sample_name):
+    with vcf_path.open("w", encoding="utf-8") as vcf_file:
+        vcf_file.write("##fileformat=VCFv4.3\n")
+        vcf_file.write(f"##source=BioinformaticsPipelineSimulator\n")
+        vcf_file.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n")
+        vcf_file.write("chr1\t100\tvar1\tA\tT\t99\tPASS\tDP=100;AF=0.5\n")
+        vcf_file.write("chr1\t200\tvar2\tG\tC\t95\tPASS\tDP=85;AF=0.45\n")
+        vcf_file.write("chr2\t500\tvar3\tTT\tT\t88\tPASS\tDP=75;AF=0.4\n")
+    return vcf_path
+
+
 def run_fastqc(input_path, output_dir):
     output_dir = Path(output_dir)
     ensure_directory(output_dir)
     sample_name = sample_name_from_path(input_path)
     if is_tool_available("fastqc"):
         if safe_run(["fastqc", str(input_path), "-o", str(output_dir)]):
-            # FastQC normally writes both an HTML report and a ZIP archive.
-            # Some environments may only produce the ZIP; if so, extract HTML from it.
             reports = [path.name for path in output_dir.glob("*fastqc.html")]
             if not reports:
-                # look for zip archives and extract them
                 from zipfile import ZipFile, BadZipFile
                 zips = list(output_dir.glob("*_fastqc.zip"))
                 for z in zips:
                     try:
                         with ZipFile(z, 'r') as zp:
-                            # extract html files only
                             htmls = [n for n in zp.namelist() if n.lower().endswith('.html')]
                             for name in htmls:
                                 zp.extract(name, path=output_dir)
@@ -125,6 +131,14 @@ def run_alignment(input_path, output_dir):
     return sam_path, create_placeholder_bam(bam_path, sam_path)
 
 
+def run_variant_calling(bam_path, output_dir):
+    output_dir = Path(output_dir)
+    ensure_directory(output_dir)
+    sample_name = sample_name_from_path(bam_path)
+    vcf_path = output_dir / f"{sample_name}_variants.vcf"
+    return create_placeholder_vcf(vcf_path, sample_name)
+
+
 def run_pipeline(upload_path, task_id, update_state=None):
     input_path = Path(upload_path)
     if not input_path.exists():
@@ -136,26 +150,33 @@ def run_pipeline(upload_path, task_id, update_state=None):
     stage_outputs = {
         "fastqc": [],
         "trimming": [],
-        "alignment": []
+        "alignment": [],
+        "variants": []
     }
 
+    # Step 1: Quality Control (FastQC)
     fastqc_outputs = run_fastqc(input_path, result_dir)
     stage_outputs["fastqc"] = fastqc_outputs
     _update_progress(update_state, "fastqc", ["fastqc"], stage_outputs)
 
+    # Step 2: Adapter Trimming
     trimmed_path = run_trimming(input_path, result_dir)
     stage_outputs["trimming"] = [trimmed_path.name]
     _update_progress(update_state, "trimming", ["fastqc", "trimming"], stage_outputs)
 
+    # Step 3: Alignment to Reference
     sam_path, bam_path = run_alignment(trimmed_path, result_dir)
     stage_outputs["alignment"] = [sam_path.name, bam_path.name]
     _update_progress(update_state, "alignment", ["fastqc", "trimming", "alignment"], stage_outputs)
 
+    # Step 4: Variant Calling (Generates VCF)
+    variants_path = run_variant_calling(bam_path, result_dir)
+    stage_outputs["variants"] = [variants_path.name]
+    _update_progress(update_state, "variants", ["fastqc", "trimming", "alignment", "variants"], stage_outputs)
+
     output_files = []
-    output_files.extend(stage_outputs["fastqc"])
-    output_files.append(trimmed_path.name)
-    output_files.append(sam_path.name)
-    output_files.append(bam_path.name)
+    for outputs in stage_outputs.values():
+        output_files.extend(outputs)
 
     return {
         "status": "success",

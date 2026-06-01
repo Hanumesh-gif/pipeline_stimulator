@@ -114,12 +114,29 @@ def results(task_id):
         return jsonify({"error": "Results not found"}), 404
 
     files = sorted(os.listdir(task_folder))
-    return jsonify({
+    metadata = {}
+
+    if task_id in SYNC_TASKS:
+        metadata = SYNC_TASKS[task_id]
+    else:
+        try:
+            result = celery_run_pipeline.AsyncResult(task_id)
+            if result.state == "SUCCESS" and isinstance(result.result, dict):
+                metadata = result.result
+        except Exception:
+            metadata = {}
+
+    response = {
         "task_id": task_id,
         "result_folder": f"/download/{task_id}/",
         "files": files,
         "download_urls": [f"/download/{task_id}/{filename}" for filename in files]
-    })
+    }
+
+    if metadata:
+        response["output_files"] = metadata.get("output_files")
+        response["stage_outputs"] = metadata.get("stage_outputs")
+    return jsonify(response)
 
 
 @app.route("/download/<task_id>/<path:filename>")

@@ -172,7 +172,12 @@ Check task processing status
     "sample_fastqc.html",
     "sample_trimmed.fastq.gz",
     "sample_aligned.sam",
-    "sample_aligned.bam"
+    "sample_aligned.bam",
+    "sample_bamstats.txt",
+    "sample_variants.vcf",
+    "sample_variants_annotated.gtf",
+    "integration_summary.txt",
+    "pipeline_report.html"
   ],
   "result_directory": "results/abc123def456"
 }
@@ -185,8 +190,32 @@ List output files for a task
 ```json
 {
   "task_id": "abc123def456",
-  "files": ["sample_fastqc.html", "sample_trimmed.fastq.gz", ...],
-  "download_urls": ["/download/abc123def456/sample_fastqc.html", ...]
+  "files": [
+    "sample_fastqc.html",
+    "sample_trimmed.fastq.gz",
+    "sample_aligned.sam",
+    "sample_aligned.bam",
+    "sample_bamstats.txt",
+    "sample_variants.vcf",
+    "sample_variants_annotated.gtf",
+    "integration_summary.txt",
+    "pipeline_report.html"
+  ],
+  "download_urls": [
+    "/download/abc123def456/sample_fastqc.html",
+    ...
+  ],
+  "output_files": [ ... ],
+  "stage_outputs": {
+    "fastqc": [ ... ],
+    "trimming": [ ... ],
+    "alignment": [ ... ],
+    "bam_stats": [ ... ],
+    "variants": [ ... ],
+    "annotation": [ ... ],
+    "integration": [ ... ],
+    "report": [ ... ]
+  }
 }
 ```
 
