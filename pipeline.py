@@ -174,9 +174,16 @@ def run_pipeline(upload_path, task_id, update_state=None):
     stage_outputs["variants"] = [variants_path.name]
     _update_progress(update_state, "variants", ["fastqc", "trimming", "alignment", "variants"], stage_outputs)
 
-    output_files = []
-    for outputs in stage_outputs.values():
-        output_files.extend(outputs)
+    # Remove unwanted artifacts from older/removed stages
+    for pattern in ("*_fastqc.zip", "*_bamstats.txt", "*_annotated.*", "integration_summary.txt", "pipeline_report.html"):
+        for p in result_dir.glob(pattern):
+            try:
+                p.unlink()
+            except Exception:
+                pass
+
+    # Refresh output file list from the result directory
+    output_files = [p.name for p in sorted(result_dir.iterdir()) if p.is_file()]
 
     return {
         "status": "success",

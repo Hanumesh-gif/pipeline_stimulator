@@ -361,50 +361,25 @@
             <a href="#" class="status-link" id="results-link" target="_blank">View Results</a>
 
             <div class="stage-overview" id="stage-overview">
-                <div class="stage-card" id="stage-card-fastqc-pre">
-                    <div class="stage-title">FastQC (pre-trim)</div>
-                    <div class="stage-status waiting" id="stage-status-fastqc_pre">Waiting</div>
-                    <div class="stage-links" id="stage-links-fastqc_pre">No results yet.</div>
+                <div class="stage-card" id="stage-card-fastqc">
+                    <div class="stage-title">FastQC</div>
+                    <div class="stage-status waiting" id="stage-status-fastqc">Waiting</div>
+                    <div class="stage-links" id="stage-links-fastqc">No results yet.</div>
                 </div>
                 <div class="stage-card" id="stage-card-trimming">
                     <div class="stage-title">Trimming</div>
                     <div class="stage-status waiting" id="stage-status-trimming">Waiting</div>
                     <div class="stage-links" id="stage-links-trimming">No results yet.</div>
                 </div>
-                <div class="stage-card" id="stage-card-fastqc-post">
-                    <div class="stage-title">FastQC (post-trim)</div>
-                    <div class="stage-status waiting" id="stage-status-fastqc_post">Waiting</div>
-                    <div class="stage-links" id="stage-links-fastqc_post">No results yet.</div>
-                </div>
                 <div class="stage-card" id="stage-card-alignment">
                     <div class="stage-title">Alignment</div>
                     <div class="stage-status waiting" id="stage-status-alignment">Waiting</div>
                     <div class="stage-links" id="stage-links-alignment">No results yet.</div>
                 </div>
-                <div class="stage-card" id="stage-card-bam-stats">
-                    <div class="stage-title">BAM Stats</div>
-                    <div class="stage-status waiting" id="stage-status-bam_stats">Waiting</div>
-                    <div class="stage-links" id="stage-links-bam_stats">No results yet.</div>
-                </div>
                 <div class="stage-card" id="stage-card-variants">
                     <div class="stage-title">Variants (VCF)</div>
                     <div class="stage-status waiting" id="stage-status-variants">Waiting</div>
                     <div class="stage-links" id="stage-links-variants">No results yet.</div>
-                </div>
-                <div class="stage-card" id="stage-card-annotation">
-                    <div class="stage-title">Annotation (GTF)</div>
-                    <div class="stage-status waiting" id="stage-status-annotation">Waiting</div>
-                    <div class="stage-links" id="stage-links-annotation">No results yet.</div>
-                </div>
-                <div class="stage-card" id="stage-card-integration">
-                    <div class="stage-title">Integration</div>
-                    <div class="stage-status waiting" id="stage-status-integration">Waiting</div>
-                    <div class="stage-links" id="stage-links-integration">No results yet.</div>
-                </div>
-                <div class="stage-card" id="stage-card-report">
-                    <div class="stage-title">Report</div>
-                    <div class="stage-status waiting" id="stage-status-report">Waiting</div>
-                    <div class="stage-links" id="stage-links-report">No results yet.</div>
                 </div>
             </div>
         </div>
@@ -412,18 +387,14 @@
         <div class="info-box">
             <strong>Supported Formats:</strong><br>
             .fastq, .fq, .fasta, .fa, .fna, .fastq.gz, .fq.gz, .fasta.gz, .fa.gz, .fna.gz<br><br>
-            <strong>Pipeline Steps:</strong><br>
-            1. FastQC (pre-trim) - Quality assessment<br>
+            <strong>Pipeline Steps (simplified):</strong><br>
+            1. FastQC - Quality assessment<br>
             2. Trimming - Adapter and quality trimming<br>
-            3. FastQC (post-trim) - Quality check after trimming<br>
-            4. Alignment - Sequence alignment<br>
-            5. BAM stats - file statistics<br>
-            6. Variants - VCF creation<br>
-            7. Annotation - GTF annotation<br>
-            8. Integration - summary generation<br>
-            9. Report - final summary report<br><br>
+            3. Alignment - Sequence alignment (SAM/BAM)<br>
+            4. Variant Calling - VCF output<br><br>
             <strong>Output Files:</strong><br>
-            HTML reports, trimmed FASTQ, SAM/BAM, BAM stats, VCF, GTF, and summary reports
+            HTML reports, trimmed FASTQ, SAM/BAM, and VCF<br><br>
+            <strong>Max upload size:</strong> 500 MB
         </div>
     </div>
 
@@ -444,28 +415,18 @@
         const API_BASE_URL = "";
         const BASE_URL = API_BASE_URL || window.location.origin;
         const stageStatus = {
-            fastqc_pre: document.getElementById('stage-status-fastqc_pre'),
+            fastqc: document.getElementById('stage-status-fastqc'),
             trimming: document.getElementById('stage-status-trimming'),
-            fastqc_post: document.getElementById('stage-status-fastqc_post'),
             alignment: document.getElementById('stage-status-alignment'),
-            bam_stats: document.getElementById('stage-status-bam_stats'),
-            variants: document.getElementById('stage-status-variants'),
-            annotation: document.getElementById('stage-status-annotation'),
-            integration: document.getElementById('stage-status-integration'),
-            report: document.getElementById('stage-status-report')
+            variants: document.getElementById('stage-status-variants')
         };
         const stageLinks = {
-            fastqc_pre: document.getElementById('stage-links-fastqc_pre'),
+            fastqc: document.getElementById('stage-links-fastqc'),
             trimming: document.getElementById('stage-links-trimming'),
-            fastqc_post: document.getElementById('stage-links-fastqc_post'),
             alignment: document.getElementById('stage-links-alignment'),
-            bam_stats: document.getElementById('stage-links-bam_stats'),
-            variants: document.getElementById('stage-links-variants'),
-            annotation: document.getElementById('stage-links-annotation'),
-            integration: document.getElementById('stage-links-integration'),
-            report: document.getElementById('stage-links-report')
+            variants: document.getElementById('stage-links-variants')
         };
-        const STAGE_KEYS = ['fastqc_pre','trimming','fastqc_post','alignment','bam_stats','variants','annotation','integration','report'];
+        const STAGE_KEYS = ['fastqc','trimming','alignment','variants'];
         let currentTaskId = null;
         let statusTimer = null;
 
@@ -633,38 +594,21 @@
                 if (!resp.ok) return;
                 const res = await resp.json();
                 const stage_outputs = {
-                    fastqc_pre: [],
+                    fastqc: [],
                     trimming: [],
-                    fastqc_post: [],
                     alignment: [],
-                    bam_stats: [],
-                    variants: [],
-                    annotation: [],
-                    integration: [],
-                    report: []
+                    variants: []
                 };
                 (res.files || []).forEach(fname => {
                     const l = fname.toLowerCase();
-                    if (l.includes('fastqc') || l.endsWith('_fastqc.html') || l.endsWith('_fastqc.zip')) {
-                        if (l.includes('trimmed')) {
-                            stage_outputs.fastqc_post.push(fname);
-                        } else {
-                            stage_outputs.fastqc_pre.push(fname);
-                        }
-                    } else if (l.includes('_trimmed') && l.endsWith('.fastq.gz')) {
+                    if (l.includes('fastqc') || l.endsWith('_fastqc.html')) {
+                        stage_outputs.fastqc.push(fname);
+                    } else if (l.includes('_trimmed') && (l.endsWith('.fastq.gz') || l.endsWith('.fastq') || l.endsWith('.fq') || l.endsWith('.fq.gz'))) {
                         stage_outputs.trimming.push(fname);
-                    } else if (l.endsWith('.sam') || (l.endsWith('.bam') && !l.includes('bamstats')) || l.includes('aligned')) {
+                    } else if (l.endsWith('.sam') || l.endsWith('.bam') || l.includes('aligned')) {
                         stage_outputs.alignment.push(fname);
-                    } else if (l.includes('bamstats')) {
-                        stage_outputs.bam_stats.push(fname);
                     } else if (l.endsWith('.vcf') && !l.includes('annotated')) {
                         stage_outputs.variants.push(fname);
-                    } else if (l.endsWith('.gtf') || l.includes('annotated')) {
-                        stage_outputs.annotation.push(fname);
-                    } else if (l.includes('integration_summary')) {
-                        stage_outputs.integration.push(fname);
-                    } else if (l.includes('pipeline_report')) {
-                        stage_outputs.report.push(fname);
                     }
                 });
 
@@ -677,11 +621,7 @@
                 if (stage_outputs.fastqc.length) fakeMeta.completed_stages.push('fastqc');
                 if (stage_outputs.trimming.length) fakeMeta.completed_stages.push('trimming');
                 if (stage_outputs.alignment.length) fakeMeta.completed_stages.push('alignment');
-                if (stage_outputs.bam_stats.length) fakeMeta.completed_stages.push('bam_stats');
                 if (stage_outputs.variants.length) fakeMeta.completed_stages.push('variants');
-                if (stage_outputs.annotation.length) fakeMeta.completed_stages.push('annotation');
-                if (stage_outputs.integration.length) fakeMeta.completed_stages.push('integration');
-                if (stage_outputs.report.length) fakeMeta.completed_stages.push('report');
 
                 updateStageOverview(fakeMeta);
             } catch (e) {
@@ -690,15 +630,10 @@
         }
 
         function labelForStage(stageKey) {
-            if (stageKey === 'fastqc_pre') return 'FastQC (pre-trim)';
+            if (stageKey === 'fastqc') return 'FastQC';
             if (stageKey === 'trimming') return 'Trimming';
-            if (stageKey === 'fastqc_post') return 'FastQC (post-trim)';
             if (stageKey === 'alignment') return 'Alignment';
-            if (stageKey === 'bam_stats') return 'BAM Stats';
             if (stageKey === 'variants') return 'Variants';
-            if (stageKey === 'annotation') return 'Annotation';
-            if (stageKey === 'integration') return 'Integration';
-            if (stageKey === 'report') return 'Report';
             return stageKey;
         }
 

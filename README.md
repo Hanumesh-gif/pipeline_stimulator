@@ -39,6 +39,7 @@ For each uploaded FASTQ file, you get:
 ### Web Interface
 1. Visit http://localhost:5000
 2. Upload your FASTQ file (.fastq.gz or .fq.gz)
+	- Maximum upload size: 500 MB
 3. Wait for processing to complete
 4. Download all results including the VCF file
 
@@ -93,3 +94,4 @@ gunicorn -w 4 -b 0.0.0.0:5000 main:app
 - FastQC (optional, uses placeholder if not available)
 - Cutadapt (optional, uses placeholder if not available)
 - Samtools (optional, uses placeholder if not available)
+ - Note: The server accepts uploads up to 500 MB (configured in `main.py`).

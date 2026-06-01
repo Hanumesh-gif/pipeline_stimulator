@@ -4,6 +4,7 @@ import logging
 import traceback
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import RequestEntityTooLarge
 from celery.exceptions import CeleryError
 from worker.celery_worker import run_pipeline as celery_run_pipeline
 from pipeline import run_pipeline as pipeline_run
@@ -17,6 +18,8 @@ SYNC_TASKS = {}
 app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["RESULT_FOLDER"] = RESULT_FOLDER
+# Accept uploads up to 500 MB
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB
 
 # basic logging
 logging.basicConfig(level=logging.INFO)
@@ -78,6 +81,11 @@ def upload():
             "results_url": f"/results/{task_id}",
             "result": result
         }), 200
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(e):
+    return jsonify({"error": "File too large. Maximum allowed size is 500 MB."}), 413
 
 
 @app.route("/status/<task_id>")
