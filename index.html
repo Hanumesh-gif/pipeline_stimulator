@@ -361,25 +361,55 @@
             <a href="#" class="status-link" id="results-link" target="_blank">View Results</a>
 
             <div class="stage-overview" id="stage-overview">
-                <div class="stage-card" id="stage-card-fastqc">
-                    <div class="stage-title">FastQC</div>
-                    <div class="stage-status waiting" id="stage-status-fastqc">Waiting</div>
-                    <div class="stage-links" id="stage-links-fastqc">No results yet.</div>
+                <div class="stage-card">
+                    <div class="stage-title">Pre-QC (FastQC)</div>
+                    <div class="stage-status waiting" id="stage-status-pre_qc">Waiting</div>
+                    <div class="stage-links" id="stage-links-pre_qc">No results yet.</div>
                 </div>
-                <div class="stage-card" id="stage-card-trimming">
+                <div class="stage-card">
                     <div class="stage-title">Trimming</div>
                     <div class="stage-status waiting" id="stage-status-trimming">Waiting</div>
                     <div class="stage-links" id="stage-links-trimming">No results yet.</div>
                 </div>
-                <div class="stage-card" id="stage-card-alignment">
+                <div class="stage-card">
+                    <div class="stage-title">Post-QC (FastQC)</div>
+                    <div class="stage-status waiting" id="stage-status-post_qc">Waiting</div>
+                    <div class="stage-links" id="stage-links-post_qc">No results yet.</div>
+                </div>
+                <div class="stage-card">
                     <div class="stage-title">Alignment</div>
                     <div class="stage-status waiting" id="stage-status-alignment">Waiting</div>
                     <div class="stage-links" id="stage-links-alignment">No results yet.</div>
                 </div>
-                <div class="stage-card" id="stage-card-variants">
+                <div class="stage-card">
+                    <div class="stage-title">Post-Alignment (sort/index)</div>
+                    <div class="stage-status waiting" id="stage-status-post_alignment">Waiting</div>
+                    <div class="stage-links" id="stage-links-post_alignment">No results yet.</div>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-title">Alignment QC</div>
+                    <div class="stage-status waiting" id="stage-status-alignment_qc">Waiting</div>
+                    <div class="stage-links" id="stage-links-alignment_qc">No results yet.</div>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-title">Quantification</div>
+                    <div class="stage-status waiting" id="stage-status-quantification">Waiting</div>
+                    <div class="stage-links" id="stage-links-quantification">No results yet.</div>
+                </div>
+                <div class="stage-card">
                     <div class="stage-title">Variants (VCF)</div>
                     <div class="stage-status waiting" id="stage-status-variants">Waiting</div>
                     <div class="stage-links" id="stage-links-variants">No results yet.</div>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-title">Annotation</div>
+                    <div class="stage-status waiting" id="stage-status-annotation">Waiting</div>
+                    <div class="stage-links" id="stage-links-annotation">No results yet.</div>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-title">MultiQC</div>
+                    <div class="stage-status waiting" id="stage-status-multiqc">Waiting</div>
+                    <div class="stage-links" id="stage-links-multiqc">No results yet.</div>
                 </div>
             </div>
         </div>
@@ -415,18 +445,30 @@
         const API_BASE_URL = "";
         const BASE_URL = API_BASE_URL || window.location.origin;
         const stageStatus = {
-            fastqc: document.getElementById('stage-status-fastqc'),
+            pre_qc: document.getElementById('stage-status-pre_qc'),
             trimming: document.getElementById('stage-status-trimming'),
+            post_qc: document.getElementById('stage-status-post_qc'),
             alignment: document.getElementById('stage-status-alignment'),
-            variants: document.getElementById('stage-status-variants')
+            post_alignment: document.getElementById('stage-status-post_alignment'),
+            alignment_qc: document.getElementById('stage-status-alignment_qc'),
+            quantification: document.getElementById('stage-status-quantification'),
+            variants: document.getElementById('stage-status-variants'),
+            annotation: document.getElementById('stage-status-annotation'),
+            multiqc: document.getElementById('stage-status-multiqc')
         };
         const stageLinks = {
-            fastqc: document.getElementById('stage-links-fastqc'),
+            pre_qc: document.getElementById('stage-links-pre_qc'),
             trimming: document.getElementById('stage-links-trimming'),
+            post_qc: document.getElementById('stage-links-post_qc'),
             alignment: document.getElementById('stage-links-alignment'),
-            variants: document.getElementById('stage-links-variants')
+            post_alignment: document.getElementById('stage-links-post_alignment'),
+            alignment_qc: document.getElementById('stage-links-alignment_qc'),
+            quantification: document.getElementById('stage-links-quantification'),
+            variants: document.getElementById('stage-links-variants'),
+            annotation: document.getElementById('stage-links-annotation'),
+            multiqc: document.getElementById('stage-links-multiqc')
         };
-        const STAGE_KEYS = ['fastqc','trimming','alignment','variants'];
+        const STAGE_KEYS = ['pre_qc','trimming','post_qc','alignment','post_alignment','alignment_qc','quantification','variants','annotation','multiqc'];
         let currentTaskId = null;
         let statusTimer = null;
 
@@ -581,8 +623,8 @@
                 }
 
                 const current = data.current_stage ? `Stage: ${labelForStage(data.current_stage)}` : 'Starting...';
-                showStatus(`<span class="status-spinner"></span>${current}`, 'loading');
-                statusTimer = setTimeout(() => pollStatus(statusUrl), 4000);
+                showStatus(`<span class="status-spinner"></span>${current} (this may take several minutes)`, 'loading');
+                statusTimer = setTimeout(() => pollStatus(statusUrl), 10000);
             } catch (error) {
                 showStatus('Unable to check task status: ' + error.message, 'error');
             }
@@ -594,22 +636,38 @@
                 if (!resp.ok) return;
                 const res = await resp.json();
                 const stage_outputs = {
-                    fastqc: [],
+                    pre_qc: [],
                     trimming: [],
+                    post_qc: [],
                     alignment: [],
-                    variants: []
+                    post_alignment: [],
+                    alignment_qc: [],
+                    quantification: [],
+                    variants: [],
+                    annotation: [],
+                    multiqc: []
                 };
                 (res.files || []).forEach(fname => {
                     const l = fname.toLowerCase();
-                    // Prefer VCF assignment before alignment checks because filenames may contain 'aligned' and end with .vcf
                     if (l.endsWith('.vcf') && !l.includes('annotated')) {
                         stage_outputs.variants.push(fname);
+                    } else if (l.endsWith('_annotated.vcf') || l.endsWith('.gtf') || l.includes('annotated')) {
+                        stage_outputs.annotation.push(fname);
+                    } else if (l.includes('multiqc')) {
+                        stage_outputs.multiqc.push(fname);
                     } else if (l.includes('fastqc') || l.endsWith('_fastqc.html')) {
-                        stage_outputs.fastqc.push(fname);
+                        if (l.includes('trimmed')) stage_outputs.post_qc.push(fname);
+                        else stage_outputs.pre_qc.push(fname);
                     } else if (l.includes('_trimmed') && (l.endsWith('.fastq.gz') || l.endsWith('.fastq') || l.endsWith('.fq') || l.endsWith('.fq.gz'))) {
                         stage_outputs.trimming.push(fname);
-                    } else if (l.endsWith('.sam') || l.endsWith('.bam')) {
+                    } else if (l.endsWith('_sorted.bam') || l.endsWith('.bai')) {
+                        stage_outputs.post_alignment.push(fname);
+                    } else if (l.endsWith('.sam') || (l.endsWith('.bam') && !l.endsWith('_sorted.bam'))) {
                         stage_outputs.alignment.push(fname);
+                    } else if (l.includes('flagstat') || l.includes('coverage')) {
+                        stage_outputs.alignment_qc.push(fname);
+                    } else if (l.includes('quant') || l.includes('quantification')) {
+                        stage_outputs.quantification.push(fname);
                     }
                 });
 
@@ -619,10 +677,16 @@
                     completed_stages: [],
                     stage_outputs: stage_outputs
                 };
-                if (stage_outputs.fastqc.length) fakeMeta.completed_stages.push('fastqc');
+                if (stage_outputs.pre_qc.length) fakeMeta.completed_stages.push('pre_qc');
                 if (stage_outputs.trimming.length) fakeMeta.completed_stages.push('trimming');
+                if (stage_outputs.post_qc.length) fakeMeta.completed_stages.push('post_qc');
                 if (stage_outputs.alignment.length) fakeMeta.completed_stages.push('alignment');
+                if (stage_outputs.post_alignment.length) fakeMeta.completed_stages.push('post_alignment');
+                if (stage_outputs.alignment_qc.length) fakeMeta.completed_stages.push('alignment_qc');
+                if (stage_outputs.quantification.length) fakeMeta.completed_stages.push('quantification');
                 if (stage_outputs.variants.length) fakeMeta.completed_stages.push('variants');
+                if (stage_outputs.annotation.length) fakeMeta.completed_stages.push('annotation');
+                if (stage_outputs.multiqc.length) fakeMeta.completed_stages.push('multiqc');
 
                 updateStageOverview(fakeMeta);
             } catch (e) {

@@ -139,6 +139,53 @@ def run_variant_calling(bam_path, output_dir):
     return create_placeholder_vcf(vcf_path, sample_name)
 
 
+def create_sorted_bam(sorted_bam_path, sam_path):
+    with sorted_bam_path.open('wb') as f:
+        f.write(b'SORTED_BAM_PLACEHOLDER\n')
+        f.write(f'Source SAM: {sam_path.name}\n'.encode('utf-8'))
+    return sorted_bam_path
+
+
+def create_bai(bai_path, bam_path):
+    with bai_path.open('wb') as f:
+        f.write(b'BAI_PLACEHOLDER\n')
+        f.write(f'Source BAM: {bam_path.name}\n'.encode('utf-8'))
+    return bai_path
+
+
+def create_flagstat_report(flagstat_path, bam_path):
+    flagstat_path.write_text(f"FLAGSTAT placeholder for {bam_path.name}\nMapped: simulated\n", encoding='utf-8')
+    return flagstat_path
+
+
+def create_coverage_report(coverage_path, bam_path):
+    coverage_path.write_text(f"Coverage report placeholder for {bam_path.name}\nAverage coverage: simulated\n", encoding='utf-8')
+    return coverage_path
+
+
+def create_multiqc_report(output_dir, sample_name):
+    mq_path = output_dir / f"{sample_name}_multiqc.html"
+    mq_path.write_text(f"<html><body><h1>MultiQC (simulated) for {sample_name}</h1></body></html>", encoding='utf-8')
+    return mq_path
+
+
+def create_quantification(quant_path, sample_name):
+    quant_path.write_text(f"gene1\t100\ngene2\t50\n# Quantification placeholder for {sample_name}\n", encoding='utf-8')
+    return quant_path
+
+
+def create_placeholder_annotation(gtf_path, annotated_vcf_path, sample_name):
+    with gtf_path.open("w", encoding="utf-8") as gtf_file:
+        gtf_file.write("##gff-version 2\n")
+        gtf_file.write(f"chr1\tPipelineSimulator\texon\t100\t150\t.\t+\t.\tgene_id \"{sample_name}_gene\"; transcript_id \"{sample_name}_tx\";\n")
+    with annotated_vcf_path.open("w", encoding="utf-8") as vcf_file:
+        vcf_file.write("##fileformat=VCFv4.3\n")
+        vcf_file.write("##source=PipelineSimulatorAnnotated\n")
+        vcf_file.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tANN\n")
+        vcf_file.write("chr1\t100\tvar1\tA\tT\t99\tPASS\tDP=100\tANN=T|missense_variant\n")
+    return gtf_path, annotated_vcf_path
+
+
 def run_pipeline(upload_path, task_id, update_state=None):
     input_path = Path(upload_path)
     if not input_path.exists():
@@ -148,41 +195,86 @@ def run_pipeline(upload_path, task_id, update_state=None):
     ensure_directory(result_dir)
 
     stage_outputs = {
-        "fastqc": [],
+        "pre_qc": [],
         "trimming": [],
+        "post_qc": [],
         "alignment": [],
-        "variants": []
+        "post_alignment": [],
+        "alignment_qc": [],
+        "quantification": [],
+        "variants": [],
+        "annotation": [],
+        "multiqc": []
     }
 
-    # Step 1: Quality Control (FastQC)
-    fastqc_outputs = run_fastqc(input_path, result_dir)
-    stage_outputs["fastqc"] = fastqc_outputs
-    _update_progress(update_state, "fastqc", ["fastqc"], stage_outputs)
+    sample_name = sample_name_from_path(input_path)
 
-    # Step 2: Adapter Trimming
-    trimmed_path = run_trimming(input_path, result_dir)
-    stage_outputs["trimming"] = [trimmed_path.name]
-    _update_progress(update_state, "trimming", ["fastqc", "trimming"], stage_outputs)
+    # 1. Pre-QC
+    preqc = run_fastqc(input_path, result_dir)
+    stage_outputs["pre_qc"] = preqc
+    _update_progress(update_state, "pre_qc", ["pre_qc"], stage_outputs)
 
-    # Step 3: Alignment to Reference
-    sam_path, bam_path = run_alignment(trimmed_path, result_dir)
+    # 2. Trimming
+    trimmed = run_trimming(input_path, result_dir)
+    stage_outputs["trimming"] = [trimmed.name]
+    _update_progress(update_state, "trimming", ["pre_qc", "trimming"], stage_outputs)
+
+    # 3. Post-QC
+    postqc = run_fastqc(trimmed, result_dir)
+    stage_outputs["post_qc"] = postqc
+    _update_progress(update_state, "post_qc", ["pre_qc", "trimming", "post_qc"], stage_outputs)
+
+    # 4. Alignment
+    sam_path, bam_path = run_alignment(trimmed, result_dir)
     stage_outputs["alignment"] = [sam_path.name, bam_path.name]
-    _update_progress(update_state, "alignment", ["fastqc", "trimming", "alignment"], stage_outputs)
+    _update_progress(update_state, "alignment", ["pre_qc", "trimming", "post_qc", "alignment"], stage_outputs)
 
-    # Step 4: Variant Calling (Generates VCF)
-    variants_path = run_variant_calling(bam_path, result_dir)
-    stage_outputs["variants"] = [variants_path.name]
-    _update_progress(update_state, "variants", ["fastqc", "trimming", "alignment", "variants"], stage_outputs)
+    # 5. Post-alignment processing: sort, index
+    sorted_bam = result_dir / f"{sample_name}_trimmed_aligned_sorted.bam"
+    create_sorted_bam(sorted_bam, sam_path)
+    bai = result_dir / f"{sorted_bam.name}.bai"
+    create_bai(bai, sorted_bam)
+    stage_outputs["post_alignment"] = [sorted_bam.name, bai.name]
+    _update_progress(update_state, "post_alignment", ["alignment", "post_alignment"], stage_outputs)
 
-    # Remove unwanted artifacts from older/removed stages
-    for pattern in ("*_fastqc.zip", "*_bamstats.txt", "*_annotated.*", "integration_summary.txt", "pipeline_report.html"):
+    # 6. Alignment QC
+    flagstat = result_dir / f"{sample_name}_flagstat.txt"
+    create_flagstat_report(flagstat, sorted_bam)
+    coverage = result_dir / f"{sample_name}_coverage.txt"
+    create_coverage_report(coverage, sorted_bam)
+    stage_outputs["alignment_qc"] = [flagstat.name, coverage.name]
+    _update_progress(update_state, "alignment_qc", ["post_alignment", "alignment_qc"], stage_outputs)
+
+    # 7. Quantification
+    quant = result_dir / f"{sample_name}_quantification.txt"
+    create_quantification(quant, sample_name)
+    stage_outputs["quantification"] = [quant.name]
+    _update_progress(update_state, "quantification", ["alignment_qc", "quantification"], stage_outputs)
+
+    # 8. Variant Calling
+    vcf = run_variant_calling(sorted_bam, result_dir)
+    stage_outputs["variants"] = [vcf.name]
+    _update_progress(update_state, "variants", ["quantification", "variants"], stage_outputs)
+
+    # 9. Annotation
+    gtf, annotated_vcf = create_placeholder_annotation(result_dir / f"{sample_name}_annotated.gtf", result_dir / f"{sample_name}_annotated.vcf", sample_name)
+    stage_outputs["annotation"] = [gtf.name, annotated_vcf.name]
+    _update_progress(update_state, "annotation", ["variants", "annotation"], stage_outputs)
+
+    # 10. MultiQC
+    mq = create_multiqc_report(result_dir, sample_name)
+    stage_outputs["multiqc"] = [mq.name]
+    _update_progress(update_state, "multiqc", ["annotation", "multiqc"], stage_outputs)
+
+    # Remove old unused artifacts
+    for pattern in ("*_fastqc.zip", "*_bamstats.txt", "integration_summary.txt", "pipeline_report.html"):
         for p in result_dir.glob(pattern):
             try:
                 p.unlink()
             except Exception:
                 pass
 
-    # Refresh output file list from the result directory
+    # Final output list
     output_files = [p.name for p in sorted(result_dir.iterdir()) if p.is_file()]
 
     return {
