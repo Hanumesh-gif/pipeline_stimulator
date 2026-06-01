@@ -336,7 +336,7 @@
                 </svg>
                 <p class="upload-text">Drag and drop your file here</p>
                 <p class="upload-hint">or click to browse</p>
-                <input type="file" id="file-input" accept=".fastq,.fq,.fastq.gz,.fq.gz" />
+                <input type="file" id="file-input" accept=".fastq,.fq,.fastq.gz,.fq.gz,.fasta,.fa,.fna,.fasta.gz,.fa.gz,.fna.gz" />
             </div>
 
             <div class="file-info" id="file-info">
@@ -411,7 +411,7 @@
 
         <div class="info-box">
             <strong>Supported Formats:</strong><br>
-            .fastq, .fq, .fastq.gz, .fq.gz<br><br>
+            .fastq, .fq, .fasta, .fa, .fna, .fastq.gz, .fq.gz, .fasta.gz, .fa.gz, .fna.gz<br><br>
             <strong>Pipeline Steps:</strong><br>
             1. FastQC (pre-trim) - Quality assessment<br>
             2. Trimming - Adapter and quality trimming<br>
@@ -537,12 +537,19 @@
             resetStages();
 
             try {
-                const response = await fetch(`${BASE_URL}/upload`, {
+                    const response = await fetch(`${BASE_URL}/upload`, {
                     method: 'POST',
                     body: formData
                 });
 
-                const data = await response.json();
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (parseError) {
+                    showStatus('Error uploading file: invalid server response. ' + text, 'error');
+                    return;
+                }
 
                 if (response.ok) {
                     showStatus('File uploaded successfully! Processing started.', 'success');

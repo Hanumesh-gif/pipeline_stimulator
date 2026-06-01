@@ -11,7 +11,7 @@ from pipeline import run_pipeline as pipeline_run
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 RESULT_FOLDER = os.path.join(BASE_DIR, "results")
-ALLOWED_EXTENSIONS = {".fastq.gz", ".fq.gz", ".fastq", ".fq"}
+ALLOWED_EXTENSIONS = {".fastq.gz", ".fq.gz", ".fastq", ".fq", ".fasta", ".fa", ".fna", ".fasta.gz", ".fa.gz", ".fna.gz"}
 SYNC_TASKS = {}
 
 app = Flask(__name__, static_folder=BASE_DIR, static_url_path="")
@@ -44,7 +44,8 @@ def upload():
         return jsonify({"error": "No file selected"}), 400
 
     if not allowed_file(uploaded_file.filename):
-        return jsonify({"error": "Only .fastq.gz or .fq.gz files are accepted"}), 400
+        allowed = ", ".join(sorted(ALLOWED_EXTENSIONS))
+        return jsonify({"error": f"Only sequence files are accepted. Supported extensions: {allowed}"}), 400
 
     filename = secure_filename(uploaded_file.filename)
     timestamp = int(time.time())
