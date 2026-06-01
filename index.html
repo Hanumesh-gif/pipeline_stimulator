@@ -601,14 +601,15 @@
                 };
                 (res.files || []).forEach(fname => {
                     const l = fname.toLowerCase();
-                    if (l.includes('fastqc') || l.endsWith('_fastqc.html')) {
+                    // Prefer VCF assignment before alignment checks because filenames may contain 'aligned' and end with .vcf
+                    if (l.endsWith('.vcf') && !l.includes('annotated')) {
+                        stage_outputs.variants.push(fname);
+                    } else if (l.includes('fastqc') || l.endsWith('_fastqc.html')) {
                         stage_outputs.fastqc.push(fname);
                     } else if (l.includes('_trimmed') && (l.endsWith('.fastq.gz') || l.endsWith('.fastq') || l.endsWith('.fq') || l.endsWith('.fq.gz'))) {
                         stage_outputs.trimming.push(fname);
-                    } else if (l.endsWith('.sam') || l.endsWith('.bam') || l.includes('aligned')) {
+                    } else if (l.endsWith('.sam') || l.endsWith('.bam')) {
                         stage_outputs.alignment.push(fname);
-                    } else if (l.endsWith('.vcf') && !l.includes('annotated')) {
-                        stage_outputs.variants.push(fname);
                     }
                 });
 
